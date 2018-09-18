@@ -10,6 +10,7 @@
 #include "TestConstructors.h"
 #include "TestGenericCRTP.h"
 #include "TestMove.h"
+#include "TestIterators.h"
 
 using namespace suriar;
 
@@ -20,6 +21,7 @@ int main()
 	testConstructors();
 	testGenericCRTP();
 	testMove();
+	testIterators();
 
 	return 0;
 }
