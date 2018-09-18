@@ -9,6 +9,7 @@
 #include "TestRangeLoops.h"
 #include "TestConstructors.h"
 #include "TestGenericCRTP.h"
+#include "TestMove.h"
 
 using namespace suriar;
 
@@ -18,6 +19,7 @@ int main()
 	testRangeLoops();
 	testConstructors();
 	testGenericCRTP();
+	testMove();
 
 	return 0;
 }
