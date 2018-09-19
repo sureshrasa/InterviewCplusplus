@@ -49,7 +49,6 @@ namespace suriar
             virtual boost::optional<V> const getValue() const = 0;
             virtual result_type longest_prefix(K const & key) = 0;
 
-            virtual pointer_type operator[](typename K::value_type const & digit) = 0;
             virtual pointer_type put(iterator_range const & range, V const & value) = 0;
         };
 
@@ -75,11 +74,6 @@ namespace suriar
                 return std::make_pair(boost::make_iterator_range(std::end(key),std::end(key)), boost::optional<V>());
             }
 
-            virtual typename TrieElement::pointer_type operator[](typename K::value_type const &) override
-            {
-                return instance();
-            }
-
             typename TrieElement::pointer_type put(typename TrieElement::iterator_range const & range, V const & value) override;
         };
 
@@ -99,21 +93,14 @@ namespace suriar
                 auto trie = std::enable_shared_from_this<TrieElement>::shared_from_this();
                 for (auto i = begin; i != end; ++i)
                 {
-                    auto const child = (*trie)[*i];
-                    if (!child->hasChildren())
+                    auto const pos = children.find(*i);
+                    if (pos == children.end())
                     {
                         return std::make_pair(boost::make_iterator_range(begin, i), trie->getValue());
                     }
-                    trie = child;
+                    trie = pos->second;
                 }
                 return std::make_pair(boost::make_iterator_range(begin, end), trie->getValue());
-            }
-
-            typename TrieElement::pointer_type operator[](typename K::value_type const & digit) override
-            {
-                auto const pos = children.find(digit);
-
-                return (pos == children.end()) ? EmptyTrieElement::instance() : pos->second;
             }
 
             typename TrieElement::pointer_type put(typename TrieElement::iterator_range const & range, V const & value) override
@@ -130,7 +117,7 @@ namespace suriar
                     {
                         child = std::make_shared<NodeTrieElement>();
                     }
-                    child = child->put(boost::make_iterator_range(std::next(curr), std::end(range)), value);
+                    child->put(boost::make_iterator_range(std::next(curr), std::end(range)), value);
                 }
                 return std::enable_shared_from_this<TrieElement>::shared_from_this();
             }
