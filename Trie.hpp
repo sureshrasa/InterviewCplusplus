@@ -55,28 +55,21 @@ namespace suriar
 
         void put(K const & key, V const & value) override
         {
-            put(boost::make_iterator_range(std::begin(key), std::end(key)), value);
-        }
-
-    private:
-        void put(typename Trie<K, V>::iterator_range const & range, V const & value)
-        {
-            auto const curr = std::begin(range);
-            if (curr == std::end(range))
+            auto const end = std::end(key);
+            auto * trie = this;
+            for(auto i = std::begin(key); i != end; ++i)
             {
-                this->value = value;
-            }
-            else
-            {
-                auto & child = children[*curr];
+                auto & child = trie->children[*i];
                 if (!child)
                 {
                     child = std::make_shared<HashTrie>();
                 }
-                child->put(boost::make_iterator_range(std::next(curr), std::end(range)), value);
+                trie = child.get();
             }
+            trie->value = value;
         }
 
+    private:
         boost::optional<V> value;
         std::map<typename K::value_type, std::shared_ptr<HashTrie>> children;
     };
