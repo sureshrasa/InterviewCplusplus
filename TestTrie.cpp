@@ -18,9 +18,9 @@ namespace
     {
     public:
         bool isEmpty() const override { return Trie<K, V>::isEmpty(); }
-        typename Trie<K, V>::result_type longest_prefix(K const & key) const override
+        typename Trie<K, V>::result_type longest_prefix_path(typename Trie<K,V>::iterator_range const & path) const override
         {
-            return Trie<K, V>::longest_prefix(key);
+            return Trie<K, V>::longest_prefix_path(path);
         }
 
         void put(K const & key, V const & value) override { Trie<K, V>::put(key, value); }

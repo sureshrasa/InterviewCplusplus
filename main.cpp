@@ -12,6 +12,7 @@
 #include "TestMove.h"
 #include "TestIterators.h"
 #include "TestTrie.h"
+#include "TestRespace.h"
 
 using namespace suriar;
 
@@ -24,6 +25,7 @@ int main()
 	testMove();
 	testIterators();
 	testTrie();
+	testRespace();
 
 	return 0;
 }
