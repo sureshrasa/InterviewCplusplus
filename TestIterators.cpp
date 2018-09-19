@@ -9,33 +9,13 @@
 #include <type_traits>
 #include <memory>
 #include <iostream>
-#include <boost/iterator/iterator_facade.hpp>
-#include <boost/mpl/assert.hpp>
-#include <boost/type_traits.hpp>
-
+#include "Interface.hpp"
 #include "TestIterators.h"
+
+using namespace suriar;
 
 namespace
 {
-    template<typename T>
-    class Interface
-    {
-    public:
-        Interface() {}
-
-        // Virtual destructor, to ensure well-defined semantics
-        virtual ~Interface() noexcept
-        {
-            BOOST_MPL_ASSERT((std::is_abstract<T>));
-            BOOST_MPL_ASSERT((boost::has_virtual_destructor<T>));
-            BOOST_MPL_ASSERT((boost::is_base_of<Interface, T>));
-        }
-
-    private:
-        Interface(Interface const &) = delete;
-        Interface & operator =(Interface const &) = delete;
-    };
-
     template<typename V>
     class IteratorAccess: public Interface<IteratorAccess<V>>
     {
@@ -79,7 +59,7 @@ namespace
         std::shared_ptr<IteratorAccess<V>> const access;
     };
 
-    class StringIteratorAccess: public IteratorAccess<char const>
+    class StringIteratorAccess final: public IteratorAccess<char const>
     {
     public:
         explicit StringIteratorAccess(std::string const & value): data{value}
