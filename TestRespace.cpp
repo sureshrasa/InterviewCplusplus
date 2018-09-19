@@ -30,7 +30,7 @@ namespace
         std::vector<std::string> respace(std::string const & str)
         {
             auto str_end = std::end(str);
-            auto best = respace(std::begin(str), str_end);
+            auto best = respace(std::numeric_limits<unsigned>::max(), std::begin(str), str_end);
             
             {
                 auto const firstPass = buildWords(best.second);
@@ -52,8 +52,8 @@ namespace
         }
 
     private:
-        typedef boost::iterator_range<std::string::const_iterator> iterator_range;
-        typedef std::pair<bool, iterator_range> word_match;
+        typedef boost::iterator_range<std::string::const_iterator> word_range;
+        typedef std::pair<bool, word_range> word_match;
         typedef std::vector<word_match> match_vector;
 
         std::shared_ptr<Dict const> const dict;
@@ -78,6 +78,8 @@ namespace
         {
             if (begin == end) return std::make_pair(0, match_vector{});
             
+            std::cout << "best respacing limit =" << badCharLimit << "\n";
+
             auto const & firstWord = *begin;
             if (!firstWord.first)
             {
@@ -113,7 +115,7 @@ namespace
             auto bestSoFar = std::make_pair(std::numeric_limits<unsigned>::max(), match_vector{});
             for (auto i = std::next(range.begin()); i != range.end() && badChars < badCharLimit; ++i, ++badChars)
             {
-                auto result = respace(i, strEnd);
+                auto result = respace(badCharLimit-badChars, i, strEnd);
                 if (result.first+badChars < bestSoFar.first)
                 {
                     auto const badWord = std::make_pair(false, boost::make_iterator_range(range.begin(), i));
@@ -158,9 +160,9 @@ namespace
         }
 
         std::pair<unsigned, match_vector>
-        respace(std::string::const_iterator const & begin, std::string::const_iterator const & end)
+        respace(unsigned const badCharLimit, std::string::const_iterator const & begin, std::string::const_iterator const & end)
         {
-            std::cout << "respacing <" << std::string(begin, end) << ">\n";
+            std::cout << "respacing <" << std::string(begin, end) << "> limit =" << badCharLimit << "\n";
 
             if (begin == end) return std::make_pair(0, match_vector{});
 
@@ -168,25 +170,29 @@ namespace
             auto const pos = cache.find(searchPos);
             if (pos != cache.end()) return pos->second;
 
-            auto match = dict->longest_prefix_path(boost::make_iterator_range(begin, end));
+            auto const match = dict->longest_prefix_path(boost::make_iterator_range(begin, end));
 
             if (match.second)
             {
                 std::cout << "found word<" << *match.second << ">\n";
                 auto const match_word = std::make_pair(true, match.first);
-                auto const rest = respace(match.first.end(), end);
+                auto const rest = respace(badCharLimit, match.first.end(), end);
                 auto const result = std::make_pair(rest.first, concat(match_word, rest.second));
+                cache[searchPos] = result;
+                return result;
+            }
+            else if (badCharLimit >= 1)
+            {
+                auto const badWord = std::make_pair(false, boost::make_iterator_range(begin, std::next(begin)));
+                auto const rest = respace(badCharLimit-1, badWord.second.end(), end);
+                auto const result = std::make_pair(rest.first+1, merge_words(badWord, rest.second));
+                std::cout << "found bad word<" << buildWord(result.second[0]) << ">\n";
                 cache[searchPos] = result;
                 return result;
             }
             else
             {
-                auto const badWord = std::make_pair(false, boost::make_iterator_range(begin, std::next(begin)));
-                auto const rest = respace(badWord.second.end(), end);
-                auto const result = std::make_pair(rest.first+1, merge_words(badWord, rest.second));
-                std::cout << "found bad word<" << buildWord(result.second[0]) << ">\n";
-                cache[searchPos] = result;
-                return result;
+                return std::make_pair(badCharLimit+1, match_vector{});
             }
         }
     };
