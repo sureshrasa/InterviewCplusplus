@@ -40,22 +40,17 @@ namespace suriar
         public:
             typedef typename K::const_iterator key_iterator;
             typedef boost::iterator_range<key_iterator> iterator_range;
+            typedef std::pair<iterator_range, boost::optional<V>> result_type;
 
             typedef std::shared_ptr<TrieElement const> const_pointer_type;
             typedef std::shared_ptr<TrieElement> pointer_type;
 
-            typedef std::pair<iterator_range, boost::optional<V>> result_type;
-
             virtual bool hasChildren() const = 0;
             virtual boost::optional<V> const getValue() const = 0;
-            virtual result_type longest_prefix(K const & key) const = 0;
+            virtual result_type longest_prefix(K const & key) = 0;
 
-            virtual pointer_type operator[](
-                    typename K::value_type const & digit) = 0;
-            virtual const_pointer_type operator[](
-                    typename K::value_type const & digit) const = 0;
-            virtual pointer_type put(iterator_range const & range,
-                    V const & value) = 0;
+            virtual pointer_type operator[](typename K::value_type const & digit) = 0;
+            virtual pointer_type put(iterator_range const & range, V const & value) = 0;
         };
 
         class EmptyTrieElement: public TrieElement
@@ -72,53 +67,32 @@ namespace suriar
                 return INSTANCE;
             }
 
-            bool hasChildren() const override
+            bool hasChildren() const override { return false; }
+            boost::optional<V> const getValue() const override { return  {}; }
+
+            typename HashTrie::result_type longest_prefix(K const & key) override
             {
-                return false;
-            }
-            boost::optional<V> const getValue() const override
-            {
-                return
-                {};
+                return std::make_pair(boost::make_iterator_range(std::end(key),std::end(key)), boost::optional<V>());
             }
 
-            typename TrieElement::result_type longest_prefix(K const & key) const override
-            {
-                return std::make_pair(
-                        boost::make_iterator_range(std::end(key),
-                                std::end(key)), boost::optional<V>());
-            }
-
-            virtual typename TrieElement::pointer_type operator[](typename K::value_type const &)
-                    override
+            virtual typename TrieElement::pointer_type operator[](typename K::value_type const &) override
             {
                 return instance();
             }
 
-            virtual typename TrieElement::const_pointer_type operator[](
-                    typename K::value_type const &) const override
-            {
-                return instance();
-            }
-
-            typename TrieElement::pointer_type put(typename TrieElement::iterator_range const & range,
-                    V const & value) override;
+            typename TrieElement::pointer_type put(typename TrieElement::iterator_range const & range, V const & value) override;
         };
 
-        class NodeTrieElement: public TrieElement,
+        class NodeTrieElement:
+                public TrieElement,
                 public std::enable_shared_from_this<TrieElement>
         {
         public:
-            bool hasChildren() const override
-            {
-                return true;
-            }
-            boost::optional<V> const getValue() const override
-            {
-                return value;
-            }
+            bool hasChildren() const override { return true; }
 
-            typename TrieElement::result_type longest_prefix(K const & key) const override
+            boost::optional<V> const getValue() const override { return value; }
+
+            typename TrieElement::result_type longest_prefix(K const & key) override
             {
                 auto const begin = std::begin(key);
                 auto const end = std::end(key);
@@ -128,36 +102,21 @@ namespace suriar
                     auto const child = (*trie)[*i];
                     if (!child->hasChildren())
                     {
-                        return std::make_pair(
-                                boost::make_iterator_range(begin, i),
-                                trie->getValue());
+                        return std::make_pair(boost::make_iterator_range(begin, i), trie->getValue());
                     }
                     trie = child;
                 }
-                return std::make_pair(boost::make_iterator_range(end, end),
-                        trie->getValue());
+                return std::make_pair(boost::make_iterator_range(begin, end), trie->getValue());
             }
 
-            typename TrieElement::pointer_type operator[](typename K::value_type const & digit)
-                    override
+            typename TrieElement::pointer_type operator[](typename K::value_type const & digit) override
             {
                 auto const pos = children.find(digit);
 
-                return (pos == children.end()) ?
-                        EmptyTrieElement::instance() : pos->second;
+                return (pos == children.end()) ? EmptyTrieElement::instance() : pos->second;
             }
 
-            typename TrieElement::const_pointer_type operator[](
-                    typename K::value_type const & digit) const override
-            {
-                auto const pos = children.find(digit);
-
-                return (pos == children.end()) ?
-                        EmptyTrieElement::instance() : pos->second;
-            }
-
-            typename TrieElement::pointer_type put(typename TrieElement::iterator_range const & range,
-                    V const & value) override
+            typename TrieElement::pointer_type put(typename TrieElement::iterator_range const & range, V const & value) override
             {
                 auto const curr = std::begin(range);
                 if (curr == std::end(range))
@@ -166,15 +125,12 @@ namespace suriar
                 }
                 else
                 {
-                    auto digit = *curr;
-                    auto pos = children.find(digit);
-                    if (pos == children.end())
+                    auto & child = children[*curr];
+                    if (!child)
                     {
-                        children[digit] = std::make_shared<NodeTrieElement>();
+                        child = std::make_shared<NodeTrieElement>();
                     }
-                    children[digit]->put(
-                            boost::make_iterator_range(std::next(curr),
-                                    std::end(range)), value);
+                    child = child->put(boost::make_iterator_range(std::next(curr), std::end(range)), value);
                 }
                 return std::enable_shared_from_this<TrieElement>::shared_from_this();
             }
