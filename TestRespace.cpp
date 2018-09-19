@@ -25,12 +25,30 @@ namespace
     class Respacer
     {
     public:
-        std::vector<std::string> respace(std::string const & str, Dict const & dict)
+        explicit Respacer(std::shared_ptr<Dict const> const & dict): dict{dict} {}
+
+        std::vector<std::string> respace(std::string const & str)
         {
             auto str_end = std::end(str);
-            auto best = respace(std::begin(str), str_end, dict);
+            auto best = respace(std::begin(str), str_end);
             
-            return buildWords(best_respace(best.first, std::begin(best.second), std::end(best.second), str_end, dict).second);
+            {
+                auto const firstPass = buildWords(best.second);
+                std::cout << "first pass [";
+                std::copy(firstPass.begin(), firstPass.end(), std::ostream_iterator<std::string>(std::cout, " "));
+                std::cout << "]\n";
+            }
+
+            auto const result = buildWords(best_respace(best.first, std::begin(best.second), std::end(best.second), str_end).second);
+            {
+                std::cout << "last pass [";
+                std::copy(result.begin(), result.end(), std::ostream_iterator<std::string>(std::cout, " "));
+                std::cout << "]\n";
+            }
+
+            cache.clear();
+
+            return result;
         }
 
     private:
@@ -38,6 +56,7 @@ namespace
         typedef std::pair<bool, iterator_range> word_match;
         typedef std::vector<word_match> match_vector;
 
+        std::shared_ptr<Dict const> const dict;
         std::map<unsigned, std::pair<unsigned, match_vector>> cache;
 
         std::vector<std::string> buildWords(match_vector const & word_matches)
@@ -55,7 +74,7 @@ namespace
         best_respace(unsigned const badCharLimit,
                 match_vector::const_iterator const & begin,
                 match_vector::const_iterator const & end,
-                std::string::const_iterator const & strEnd, Dict const & dict)
+                std::string::const_iterator const & strEnd)
         {
             if (begin == end) return std::make_pair(0, match_vector{});
             
@@ -66,13 +85,13 @@ namespace
                 if (badChars > badCharLimit)
                     return std::make_pair(std::numeric_limits<unsigned>::max(), match_vector{});
                 
-                auto const result = best_respace(badCharLimit-badChars, std::next(begin), end, strEnd, dict);
+                auto const result = best_respace(badCharLimit-badChars, std::next(begin), end, strEnd);
                 return std::make_pair(badChars+result.first, merge_words(firstWord, result.second));
             }
             else
             {
-                auto const result1 = best_respace_good(badCharLimit, firstWord, strEnd, dict);
-                auto const result2 = best_respace(badCharLimit, std::next(begin), end, strEnd, dict);
+                auto const result1 = best_respace_good(badCharLimit, firstWord, strEnd);
+                auto const result2 = best_respace(badCharLimit, std::next(begin), end, strEnd);
                 if (result1.first <= result2.first)
                 {
                     return result1;
@@ -87,26 +106,19 @@ namespace
         std::pair<unsigned, match_vector>
         best_respace_good(unsigned const badCharLimit,
                 word_match const & goodWord,
-                std::string::const_iterator const & strEnd, Dict const & dict)
+                std::string::const_iterator const & strEnd)
         {
             auto const range = goodWord.second;
-            unsigned badChars = 0;
+            unsigned badChars = 1;
             auto bestSoFar = std::make_pair(std::numeric_limits<unsigned>::max(), match_vector{});
-            for (auto i = range.begin(); i != range.end();)
+            for (auto i = std::next(range.begin()); i != range.end() && badChars < badCharLimit; ++i, ++badChars)
             {
-                ++i;
-                ++badChars;
-                if (badChars < badCharLimit)
+                auto result = respace(i, strEnd);
+                if (result.first+badChars < bestSoFar.first)
                 {
-                    auto result = respace(i, strEnd, dict);
-                    if (result.first+badChars < bestSoFar.first)
-                    {
-                        auto const badWord = std::make_pair(false, boost::make_iterator_range(range.begin(), i));
-                        bestSoFar = std::make_pair(badChars+result.first, merge_words(badWord, result.second));
-                    }
+                    auto const badWord = std::make_pair(false, boost::make_iterator_range(range.begin(), i));
+                    bestSoFar = std::make_pair(badChars+result.first, merge_words(badWord, result.second));
                 }
-                else
-                    break;
             }
             return bestSoFar;
         }
@@ -140,51 +152,42 @@ namespace
             return std::make_pair(false, boost::make_iterator_range(std::begin(before.second), std::end(after.second)));
         }
         
-        std::pair<unsigned, match_vector>
-        respace(std::string::const_iterator const & begin, std::string::const_iterator const & end, Dict const & dict)
+        std::string buildWord(word_match const & match)
         {
+            return std::string(match.second.begin(), match.second.end());
+        }
+
+        std::pair<unsigned, match_vector>
+        respace(std::string::const_iterator const & begin, std::string::const_iterator const & end)
+        {
+            std::cout << "respacing <" << std::string(begin, end) << ">\n";
+
+            if (begin == end) return std::make_pair(0, match_vector{});
+
             auto const searchPos = std::distance(begin, end);
             auto const pos = cache.find(searchPos);
             if (pos != cache.end()) return pos->second;
 
-            unsigned badCount = 0;
-            match_vector words;
+            auto match = dict->longest_prefix_path(boost::make_iterator_range(begin, end));
 
-            auto bad = boost::make_iterator_range(begin, begin);
-            for(;;)
+            if (match.second)
             {
-                std::cout << "respacing: <" << std::string(std::end(bad), end) << ">\n";
-                auto match = dict.longest_prefix_path(boost::make_iterator_range(std::end(bad), end));
-                while (match.second)
-                {
-                    badCount += addIfNonEmpty(words, bad);
-                    std::cout << "found good word: <" << *match.second << ">\n";
-                    words.push_back(std::make_pair(true, match.first));
-                    bad = boost::make_iterator_range(std::end(match.first), std::end(match.first));
-                    match = dict.longest_prefix_path(boost::make_iterator_range(std::end(bad), end));
-                }
-                if (std::end(bad) == end)
-                    break;
-
-                bad = boost::make_iterator_range(std::begin(bad), std::next(std::end(bad)));
+                std::cout << "found word<" << *match.second << ">\n";
+                auto const match_word = std::make_pair(true, match.first);
+                auto const rest = respace(match.first.end(), end);
+                auto const result = std::make_pair(rest.first, concat(match_word, rest.second));
+                cache[searchPos] = result;
+                return result;
             }
-            badCount += addIfNonEmpty(words, bad);
-
-            auto const result = std::make_pair(badCount, words);
-            cache[searchPos] = result;
-            return result;
-        }
-
-        template <typename T>
-        static unsigned addIfNonEmpty(match_vector & result, T const & range)
-        {
-            if (std::begin(range) != std::end(range))
+            else
             {
-                std::cout << "found bad word: <" << std::string(std::begin(range), std::end(range)) << ">\n";
-                result.push_back(std::make_pair(false, range));
-                return std::distance(std::begin(range), std::end(range));
+                auto const badWord = std::make_pair(false, boost::make_iterator_range(begin, std::next(begin)));
+                auto const rest = respace(badWord.second.end(), end);
+                auto const result = std::make_pair(rest.first+1, merge_words(badWord, rest.second));
+                std::cout << "found bad word<" << buildWord(result.second[0]) << ">\n";
+                cache[searchPos] = result;
+                return result;
             }
-            return 0;
         }
     };
 
@@ -196,8 +199,6 @@ namespace
 
 void suriar::testRespace()
 {
-    auto respacer = std::make_shared<Respacer>();
-
     auto const dict = std::make_shared<HashDict>();
     addWord(*dict, "looked");
     addWord(*dict, "just");
@@ -208,10 +209,12 @@ void suriar::testRespace()
     addWord(*dict, "bye");
     addWord(*dict, "goodbye");
 
-    assert((respacer->respace("jesslookedjustliketomherbrother", *dict) ==
+    auto respacer = std::make_shared<Respacer>(dict);
+
+    assert((respacer->respace("jesslookedjustliketomherbrother") ==
             std::vector<std::string>{"jess", "looked", "just", "like", "tom", "her", "brother"}));
 
-    assert((respacer->respace("goodbrothertomgoodbyebye", *dict) ==
+    assert((respacer->respace("goodbrothertomgoodbyebye") ==
             std::vector<std::string>{"good", "brother", "tom", "goodbye", "bye"}));
 }
 
