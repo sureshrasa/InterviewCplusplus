@@ -19,7 +19,7 @@ void suriar::testTrie()
         std::string const key = "hello";
         auto const result = trie->longest_prefix(key);
         assert(!result.second);
-        assert(std::begin(result.first) == key.end());
+        assert(std::begin(result.first) == key.begin());
         auto const match = std::string(std::begin(result.first), std::end(result.first));
         assert(match == "");
     }

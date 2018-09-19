@@ -45,36 +45,10 @@ namespace suriar
             typedef std::shared_ptr<TrieElement const> const_pointer_type;
             typedef std::shared_ptr<TrieElement> pointer_type;
 
-            virtual bool hasChildren() const = 0;
             virtual boost::optional<V> const getValue() const = 0;
             virtual result_type longest_prefix(K const & key) = 0;
 
-            virtual pointer_type put(iterator_range const & range, V const & value) = 0;
-        };
-
-        class EmptyTrieElement: public TrieElement
-        {
-        public:
-            static std::shared_ptr<TrieElement> instance()
-            {
-                static std::shared_ptr<TrieElement> INSTANCE;
-
-                if (!INSTANCE)
-                {
-                    INSTANCE = std::make_shared<EmptyTrieElement>();
-                }
-                return INSTANCE;
-            }
-
-            bool hasChildren() const override { return false; }
-            boost::optional<V> const getValue() const override { return  {}; }
-
-            typename HashTrie::result_type longest_prefix(K const & key) override
-            {
-                return std::make_pair(boost::make_iterator_range(std::end(key),std::end(key)), boost::optional<V>());
-            }
-
-            typename TrieElement::pointer_type put(typename TrieElement::iterator_range const & range, V const & value) override;
+            virtual void put(iterator_range const & range, V const & value) = 0;
         };
 
         class NodeTrieElement:
@@ -82,8 +56,6 @@ namespace suriar
                 public std::enable_shared_from_this<TrieElement>
         {
         public:
-            bool hasChildren() const override { return true; }
-
             boost::optional<V> const getValue() const override { return value; }
 
             typename TrieElement::result_type longest_prefix(K const & key) override
@@ -103,7 +75,7 @@ namespace suriar
                 return std::make_pair(boost::make_iterator_range(begin, end), trie->getValue());
             }
 
-            typename TrieElement::pointer_type put(typename TrieElement::iterator_range const & range, V const & value) override
+            void put(typename TrieElement::iterator_range const & range, V const & value) override
             {
                 auto const curr = std::begin(range);
                 if (curr == std::end(range))
@@ -119,7 +91,6 @@ namespace suriar
                     }
                     child->put(boost::make_iterator_range(std::next(curr), std::end(range)), value);
                 }
-                return std::enable_shared_from_this<TrieElement>::shared_from_this();
             }
 
         private:
@@ -127,9 +98,9 @@ namespace suriar
             std::map<typename K::value_type, typename TrieElement::pointer_type> children;
         };
 
-        typename TrieElement::pointer_type root;
+        typename TrieElement::pointer_type const root;
     public:
-        HashTrie(): root{EmptyTrieElement::instance()} {}
+        HashTrie(): root{std::make_shared<NodeTrieElement>()} {}
 
         typename Trie<K,V>::result_type longest_prefix(K const & key) const override
         {
@@ -138,29 +109,9 @@ namespace suriar
 
         void put(K const & key, V const & value) override
         {
-            root = root->put(boost::make_iterator_range(std::begin(key), std::end(key)), value);
+            root->put(boost::make_iterator_range(std::begin(key), std::end(key)), value);
         }
     };
-
-    template<typename K, typename V>
-    typename HashTrie<K, V>::TrieElement::pointer_type HashTrie<K, V>::EmptyTrieElement::put(
-            typename HashTrie<K, V>::TrieElement::iterator_range const & range,
-            V const & value)
-    {
-        auto const curr = std::begin(range);
-        if (curr == std::end(range))
-        {
-            return instance();
-        }
-        else
-        {
-            auto const trie = std::make_shared<NodeTrieElement>();
-
-            (void)trie->put(range, value);
-
-            return trie;
-        }
-    }
 }
 
 #endif /* TRIE_HPP_ */
