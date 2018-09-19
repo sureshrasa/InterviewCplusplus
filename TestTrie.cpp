@@ -9,9 +9,29 @@
 #include "Trie.hpp"
 #include <iostream>
 
+using namespace suriar;
+
+namespace
+{
+    template<typename K, typename V>
+    class EmptyTrie: public Trie<K, V>
+    {
+    public:
+        bool isEmpty() const override { return Trie<K, V>::isEmpty(); }
+        typename Trie<K, V>::result_type longest_prefix(K const & key) const override
+        {
+            return Trie<K, V>::longest_prefix(key);
+        }
+
+        void put(K const & key, V const & value) override { Trie<K, V>::put(key, value); }
+    };
+}
+
 void suriar::testTrie()
 {
     std::cout << "Trie tests....\n";
+
+    assert((std::make_shared<EmptyTrie<std::string,int>>()->isEmpty()));
 
     auto const trie = std::make_shared<HashTrie<std::string, unsigned>>();
 

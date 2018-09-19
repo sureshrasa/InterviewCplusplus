@@ -13,6 +13,7 @@
 #include <map>
 #include <memory>
 #include <utility>
+#include <exception>
 
 #include "Interface.hpp"
 
@@ -27,14 +28,29 @@ namespace suriar
 
         typedef std::pair<iterator_range, boost::optional<V>> result_type;
 
+        virtual bool isEmpty() const = 0;
         virtual result_type longest_prefix(K const & key) const = 0;
         virtual void put(K const & key, V const & value) = 0;
     };
+
+    template<typename K, typename V> bool Trie<K,V>::isEmpty() const { return true; }
+    template<typename K, typename V>
+    std::pair<boost::iterator_range<typename K::const_iterator>, boost::optional<V>> Trie<K,V>::longest_prefix(K const & key) const
+    {
+        return std::make_pair(boost::make_iterator_range(std::begin(key), std::end(key)), boost::optional<V>{});
+    }
+    template<typename K, typename V>
+    void Trie<K,V>::put(K const &, V const &)
+    {
+        throw std::runtime_error("Trie::put is Unsupported");
+    }
 
     template<typename K, typename V>
     class HashTrie: public Trie<K, V>
     {
     public:
+        virtual bool isEmpty() const override { return Trie<K,V>::isEmpty(); }
+
         typename Trie<K, V>::result_type longest_prefix(K const & key) const override
         {
             auto const begin = std::begin(key);
