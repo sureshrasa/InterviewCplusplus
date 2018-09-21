@@ -13,11 +13,14 @@
 #include "TestIterators.h"
 #include "TestTrie.h"
 #include "TestRespace.h"
+#include "TestMaths.h"
+#include "TestStepNum.h"
 
 using namespace suriar;
 
 int main()
 {
+    /*
 	testVariadicTemplates();
 	testRangeLoops();
 	testConstructors();
@@ -26,6 +29,9 @@ int main()
 	testIterators();
 	testTrie();
 	testRespace();
+	*/
+    testMaths();
+    testStepNum();
 
 	return 0;
 }
